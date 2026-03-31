@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id          String   @id @default(cuid())
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  apiKeys     ApiKey[]
+  paystackCfg PaystackConfig?
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // SHA-256 hash of the raw key — plaintext is shown ONCE then discarded
+  keyHash     String    @unique
+  // First 16 chars of the raw key — safe to store, used for UI identification
+  prefix      String
+  displayName String
+  scopes      String[]
+
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([keyHash])
+  @@index([workspaceId])
+}
+
+model PaystackConfig {
+  id           String    @id @default(cuid())
+  workspaceId  String    @unique
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  // AES-256-GCM encrypted Paystack secret key — never stored as plaintext
+  secretKeyEnc String
+  environment  Environment @default(TEST)
+  updatedAt    DateTime @updatedAt
+}
+
+enum Environment {
+  LIVE
+  TEST
+}
